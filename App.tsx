@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useCallback } from 'react';
+import React, { useState, useMemo, useCallback, useEffect } from 'react';
 import type { AppState, Assignment } from './types';
 import { useLocalStorage } from './hooks/useLocalStorage';
 import SpinningWheel from './components/SpinningWheel';
@@ -156,12 +156,15 @@ interface AssignmentViewProps {
   userCounts: Record<string, number>;
   handleCopyLog: () => void;
   copyButtonText: string;
+  manualSelection: string;
+  setManualSelection: (user: string) => void;
+  handleManualAssign: () => void;
 }
 
 const AssignmentView: React.FC<AssignmentViewProps> = ({
   handleReset, handleUndoLastAssignment, allCRsAssigned, changeRequests, currentCRIndex, eligibleUsers,
   isSpinning, spinResult, onSpinEnd, handleSpin, assignments, users, userCounts,
-  handleCopyLog, copyButtonText
+  handleCopyLog, copyButtonText, manualSelection, setManualSelection, handleManualAssign
 }) => (
   <div className="p-4 md:p-8 max-w-7xl mx-auto">
       <header className="flex justify-between items-center mb-6">
@@ -207,6 +210,43 @@ const AssignmentView: React.FC<AssignmentViewProps> = ({
               >
                   {isSpinning ? 'Spinning...' : 'SPIN'}
               </button>
+
+              <div className="mt-8 w-full max-w-sm text-center">
+                  <div className="relative my-4">
+                      <div className="absolute inset-0 flex items-center" aria-hidden="true">
+                          <div className="w-full border-t border-slate-600"></div>
+                      </div>
+                      <div className="relative flex justify-center">
+                          <span className="bg-slate-800 px-2 text-sm text-slate-400">OR</span>
+                      </div>
+                  </div>
+
+                  <div className="flex gap-2">
+                      <select
+                          value={manualSelection}
+                          onChange={(e) => setManualSelection(e.target.value)}
+                          disabled={isSpinning || allCRsAssigned || eligibleUsers.length === 0}
+                          className="flex-grow bg-slate-900 border border-slate-700 rounded-md p-2 focus:ring-2 focus:ring-purple-500 focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed"
+                          aria-label="Select user for manual assignment"
+                      >
+                          {eligibleUsers.length > 0 ? (
+                              eligibleUsers.map(user => (
+                                  <option key={user} value={user}>{user}</option>
+                              ))
+                          ) : (
+                              <option>No eligible users</option>
+                          )}
+                      </select>
+                      <button
+                          onClick={handleManualAssign}
+                          disabled={isSpinning || allCRsAssigned || !manualSelection}
+                          className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                          Assign Manually
+                      </button>
+                  </div>
+              </div>
+
 
               {!isSpinning && spinResult && assignments.length > 0 && (
                   <p className="mt-6 text-xl text-center text-green-400 animate-pulse">
@@ -277,6 +317,7 @@ const App: React.FC = () => {
   
   const [isSpinning, setIsSpinning] = useState(false);
   const [spinResult, setSpinResult] = useState<string | null>(null);
+  const [manualSelection, setManualSelection] = useState<string>('');
 
   const [listName, setListName] = useState('');
   const [copyButtonText, setCopyButtonText] = useState('Copy Log');
@@ -366,6 +407,16 @@ const App: React.FC = () => {
     return { eligibleUsers: eligible.length > 0 ? eligible : users, userCounts: counts };
   }, [users, assignments]);
 
+  useEffect(() => {
+    if (eligibleUsers.length > 0) {
+      if (!manualSelection || !eligibleUsers.includes(manualSelection)) {
+        setManualSelection(eligibleUsers[0]);
+      }
+    } else {
+      setManualSelection('');
+    }
+  }, [eligibleUsers, manualSelection]);
+
   const handleSpin = useCallback(() => {
     if (isSpinning || currentCRIndex >= changeRequests.length || eligibleUsers.length === 0) return;
     
@@ -387,6 +438,18 @@ const App: React.FC = () => {
     setIsSpinning(false);
     // spinResult is kept to display the result message until next spin
   }, [spinResult, changeRequests, currentCRIndex]);
+
+  const handleManualAssign = () => {
+    if (!manualSelection || currentCRIndex >= changeRequests.length) return;
+
+    const newAssignment: Assignment = {
+      cr: changeRequests[currentCRIndex],
+      user: manualSelection,
+    };
+    setAssignments(prev => [...prev, newAssignment]);
+    setCurrentCRIndex(prev => prev + 1);
+    setSpinResult(manualSelection); // Reuse the result display
+  };
 
   const handleSaveList = () => {
     if (!listName || users.length === 0) {
@@ -468,6 +531,9 @@ const App: React.FC = () => {
             userCounts={userCounts}
             handleCopyLog={handleCopyLog}
             copyButtonText={copyButtonText}
+            manualSelection={manualSelection}
+            setManualSelection={setManualSelection}
+            handleManualAssign={handleManualAssign}
         />}
     </main>
   );
