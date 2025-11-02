@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 
 interface SpinningWheelProps {
@@ -15,9 +14,12 @@ const WHEEL_COLORS = [
 
 const SpinningWheel: React.FC<SpinningWheelProps> = ({ users, isSpinning, targetUser, onSpinEnd }) => {
   const [rotation, setRotation] = useState(0);
+  const [spinFinished, setSpinFinished] = useState(false);
 
   useEffect(() => {
     if (isSpinning && targetUser) {
+      setSpinFinished(false); // Reset on new spin
+
       const targetIndex = users.indexOf(targetUser);
       if (targetIndex === -1) return;
 
@@ -37,6 +39,7 @@ const SpinningWheel: React.FC<SpinningWheelProps> = ({ users, isSpinning, target
 
       setTimeout(() => {
         onSpinEnd();
+        setSpinFinished(true);
       }, 4000);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -65,13 +68,21 @@ const SpinningWheel: React.FC<SpinningWheelProps> = ({ users, isSpinning, target
         {/* User names */}
         {users.map((user, i) => {
           const angle = segmentAngle * i + segmentAngle / 2;
+          const isWinner = spinFinished && !isSpinning && targetUser === user;
+
           return (
             <div 
               key={user}
               className="absolute top-0 left-0 w-full h-full"
               style={{ transform: `rotate(${angle}deg)` }}
             >
-              <div className="absolute top-4 left-1/2 -translate-x-1/2 text-white font-bold text-sm md:text-base break-all" style={{ transform: `rotate(${-angle}deg)` }}>
+              <div 
+                className="absolute top-4 left-1/2 -translate-x-1/2 text-white font-bold text-sm md:text-base break-all transition-all duration-300 ease-in-out"
+                style={{ 
+                  transform: `rotate(${-angle}deg) ${isWinner ? 'scale(1.2)' : 'scale(1)'}`,
+                  filter: isWinner ? 'drop-shadow(0 0 6px rgba(255, 255, 255, 1))' : 'none',
+                 }}
+              >
                 {user.split(' ')[0]} 
               </div>
             </div>

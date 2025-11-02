@@ -142,6 +142,7 @@ const SetupView: React.FC<SetupViewProps> = ({
 
 interface AssignmentViewProps {
   handleReset: () => void;
+  handleUndoLastAssignment: () => void;
   allCRsAssigned: boolean;
   changeRequests: string[];
   currentCRIndex: number;
@@ -153,16 +154,29 @@ interface AssignmentViewProps {
   assignments: Assignment[];
   users: string[];
   userCounts: Record<string, number>;
+  handleCopyLog: () => void;
+  copyButtonText: string;
 }
 
 const AssignmentView: React.FC<AssignmentViewProps> = ({
-  handleReset, allCRsAssigned, changeRequests, currentCRIndex, eligibleUsers,
-  isSpinning, spinResult, onSpinEnd, handleSpin, assignments, users, userCounts
+  handleReset, handleUndoLastAssignment, allCRsAssigned, changeRequests, currentCRIndex, eligibleUsers,
+  isSpinning, spinResult, onSpinEnd, handleSpin, assignments, users, userCounts,
+  handleCopyLog, copyButtonText
 }) => (
   <div className="p-4 md:p-8 max-w-7xl mx-auto">
       <header className="flex justify-between items-center mb-6">
           <h1 className="text-3xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-pink-600">wheel of undesirable selection</h1>
-          <button onClick={handleReset} className="bg-slate-700 hover:bg-slate-600 text-white font-bold py-2 px-4 rounded-md transition-colors">Start Over</button>
+          <div className="flex items-center gap-2">
+            {assignments.length > 0 && !isSpinning && !allCRsAssigned && (
+                <button
+                    onClick={handleUndoLastAssignment}
+                    className="bg-amber-600 hover:bg-amber-700 text-white font-bold py-2 px-4 rounded-md transition-colors"
+                >
+                    Undo Last
+                </button>
+            )}
+            <button onClick={handleReset} className="bg-slate-700 hover:bg-slate-600 text-white font-bold py-2 px-4 rounded-md transition-colors">Start Over</button>
+          </div>
       </header>
 
       <div className="grid lg:grid-cols-2 gap-8">
@@ -215,7 +229,17 @@ const AssignmentView: React.FC<AssignmentViewProps> = ({
                   </div>
               </div>
               <div>
-                  <h3 className="text-xl font-semibold mb-3 text-purple-300">Assignment Log</h3>
+                  <div className="flex justify-between items-center mb-3">
+                    <h3 className="text-xl font-semibold text-purple-300">Assignment Log</h3>
+                    {allCRsAssigned && assignments.length > 0 && (
+                        <button
+                            onClick={handleCopyLog}
+                            className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-1 px-3 rounded-md text-sm transition-colors w-24"
+                        >
+                            {copyButtonText}
+                        </button>
+                    )}
+                  </div>
                   <div className="h-96 overflow-y-auto bg-slate-900 p-3 rounded-md border border-slate-700">
                       {assignments.length > 0 ? (
                           <ul className="space-y-2">
@@ -255,6 +279,7 @@ const App: React.FC = () => {
   const [spinResult, setSpinResult] = useState<string | null>(null);
 
   const [listName, setListName] = useState('');
+  const [copyButtonText, setCopyButtonText] = useState('Copy Log');
 
   // User management handlers
   const handleAddUser = () => {
@@ -313,6 +338,14 @@ const App: React.FC = () => {
     setSpinResult(null);
     setUsers([]);
     setChangeRequests([]);
+  };
+
+  const handleUndoLastAssignment = () => {
+      if (assignments.length === 0) return;
+
+      setAssignments(prev => prev.slice(0, -1));
+      setCurrentCRIndex(prev => prev - 1);
+      setSpinResult(null);
   };
 
   const { eligibleUsers, userCounts } = useMemo(() => {
@@ -378,6 +411,22 @@ const App: React.FC = () => {
   
   const allCRsAssigned = currentCRIndex >= changeRequests.length;
 
+  const handleCopyLog = () => {
+    if (assignments.length === 0) return;
+    const formattedLog = assignments
+      .map(a => `${a.cr} → ${a.user}`)
+      .join('\n');
+    
+    navigator.clipboard.writeText(formattedLog).then(() => {
+        setCopyButtonText('Copied!');
+        setTimeout(() => setCopyButtonText('Copy Log'), 2000);
+    }).catch(err => {
+        console.error('Failed to copy text: ', err);
+        setCopyButtonText('Error!');
+        setTimeout(() => setCopyButtonText('Copy Log'), 2000);
+    });
+  };
+
 
   return (
     <main className="min-h-screen w-full font-sans">
@@ -405,6 +454,7 @@ const App: React.FC = () => {
         /> : 
         <AssignmentView 
             handleReset={handleReset}
+            handleUndoLastAssignment={handleUndoLastAssignment}
             allCRsAssigned={allCRsAssigned}
             changeRequests={changeRequests}
             currentCRIndex={currentCRIndex}
@@ -416,6 +466,8 @@ const App: React.FC = () => {
             assignments={assignments}
             users={users}
             userCounts={userCounts}
+            handleCopyLog={handleCopyLog}
+            copyButtonText={copyButtonText}
         />}
     </main>
   );
